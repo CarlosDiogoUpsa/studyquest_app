@@ -1,3 +1,5 @@
+// lib/screens/home_screen.dart
+// ... existing imports ...
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:studyquest_app/models/subject.dart';
@@ -21,9 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Inicializar datos si es necesario
-    // Providers are typically initialized in MultiProvider in main.dart
-    // No need to check isEmpty here if you rely on main.dart's initialization
+    print('HomeScreen initState called.');
   }
 
   @override
@@ -34,12 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('HomeScreen build method called.'); // See when HomeScreen rebuilds
     final subjectProvider = Provider.of<SubjectProvider>(context);
-
-    // Get the TaskProvider. We use Consumer for the tasks section to
-    // only rebuild that part when tasks change, optimizing performance.
-    // If you need tasks data throughout the build method, you can also use:
-    // final taskProvider = Provider.of<TaskProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -47,17 +43,23 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today),
-            onPressed: () => Navigator.pushNamed(context, '/calendar'),
+            // Ensure this navigation back to HomeScreen makes it rebuild
+            onPressed: () async {
+              print('Navigating to calendar...');
+              await Navigator.pushNamed(context, '/calendar');
+              // After returning from calendar, force a rebuild if needed
+              // (Consumer should handle it, but for debug, can check)
+              print('Returned from calendar. Checking for updates.');
+              // No explicit setState needed here, as Consumer listens
+            },
           ),
         ],
       ),
       body: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.stretch, // Ensure text aligns correctly
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const StreakWidget(),
           const DailyQuest(),
-          // --- Section for Today's Tasks ---
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Align(
@@ -70,19 +72,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Consumer<TaskProvider>(
             builder: (context, taskProvider, child) {
-              final todayTasks = taskProvider.getTasksForDay(DateTime.now());
+              // Ensure DateTime.now() is consistent.
+              // It's good practice to get the current date once at the top of build
+              // or just before the call, to avoid tiny discrepancies if build takes time.
+              final today = DateTime.now();
+              print(
+                'Consumer for TaskProvider rebuilds. Current date: ${today.toIso8601String().split('T')[0]}',
+              );
+              final todayTasks = taskProvider.getTasksForDay(today);
+              print('Consumer: Found ${todayTasks.length} tasks for today.');
+
               return todayTasks.isEmpty
                   ? const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text('No tienes tareas programadas para hoy.'),
                   )
                   : SizedBox(
-                    // Use a fixed height for tasks to prevent overflow issues
-                    // with the Expanded widget below for subjects.
-                    // Adjust height based on how many tasks you expect to show.
-                    height:
-                        MediaQuery.of(context).size.height *
-                        0.25, // Example: 25% of screen height
+                    height: MediaQuery.of(context).size.height * 0.25,
                     child: ListView.builder(
                       itemCount: todayTasks.length,
                       itemBuilder:
@@ -92,7 +98,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
             },
           ),
-          // --- Your existing Subjects Section ---
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Align(
@@ -125,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAddSubjectDialog(BuildContext context) {
+    // ... (Your existing _showAddSubjectDialog method)
     showDialog(
       context: context,
       builder:

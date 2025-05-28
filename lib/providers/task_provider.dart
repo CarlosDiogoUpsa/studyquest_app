@@ -1,127 +1,152 @@
 // lib/providers/task_provider.dart
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
-import 'package:flutter/material.dart'; // For TimeOfDay, ChangeNotifier
-import 'package:collection/collection.dart'; // For groupBy
-import 'package:shared_preferences/shared_preferences.dart'; // For data persistence
-import 'dart:convert'; // For json encoding/decoding
-import 'package:uuid/uuid.dart'; // For generating unique IDs (add to pubspec.yaml if not already)
-
-import '../models/task.dart'; // Ensure this path is correct for your merged Task model
-
-// Helper function to compare dates ignoring time
-bool isSameDate(DateTime d1, DateTime d2) {
-  return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
-}
+import '../models/task.dart';
 
 class TaskProvider with ChangeNotifier {
   List<Task> _tasks = [];
-  final Uuid _uuid = const Uuid(); // Instantiate Uuid for ID generation
+  final Uuid _uuid = const Uuid();
 
-  // Constructor: Load tasks when the provider is created
   TaskProvider() {
+    print('TaskProvider constructor called. Loading tasks...');
     _loadTasks();
   }
 
-  // Getter for tasks (returns a copy to prevent external modification)
-  List<Task> get tasks => [..._tasks];
+  List<Task> get tasks {
+    // print('Getting all tasks. Current count: ${_tasks.length}');
+    return [..._tasks];
+  }
 
-  // Get tasks for a specific day (used by Calendar widget)
+  bool _isSameDate(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
   List<Task> getTasksForDay(DateTime day) {
-    return _tasks.where((task) => isSameDate(task.date, day)).toList();
+    print('getTasksForDay called for: ${day.toIso8601String().split('T')[0]}');
+    final foundTasks =
+        _tasks.where((task) => _isSameDate(task.date, day)).toList();
+    print('Found ${foundTasks.length} tasks for today.');
+    // Optional: Print tasks found
+    // for (var task in foundTasks) {
+    //   print('  - Task: ${task.title} | Date: ${task.date.toIso8601String().split('T')[0]}');
+    // }
+    return foundTasks;
   }
 
-  // Get tasks grouped by date (useful for calendar eventLoader)
-  Map<DateTime, List<Task>> get groupedTasks {
-    return groupBy(
-      _tasks,
-      (Task task) =>
-          DateTime.utc(task.date.year, task.date.month, task.date.day),
+  List<Task> getTasksForPeriod(DateTime start, DateTime end) {
+    print(
+      'getTasksForPeriod called for: ${start.toIso8601String().split('T')[0]} to ${end.toIso8601String().split('T')[0]}',
     );
+    final foundTasks =
+        _tasks
+            .where(
+              (task) =>
+                  (task.date.isAfter(start.subtract(const Duration(days: 1))) ||
+                      _isSameDate(task.date, start)) &&
+                  (task.date.isBefore(end.add(const Duration(days: 1))) ||
+                      _isSameDate(task.date, end)),
+            )
+            .toList();
+    print('Found ${foundTasks.length} tasks for period.');
+    return foundTasks;
   }
 
-  // --- Persistence Methods ---
-
-  // Load tasks from SharedPreferences
-  Future<void> _loadTasks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? tasksJson = prefs.getString('tasks');
-    if (tasksJson != null) {
-      final List<dynamic> decodedData = json.decode(tasksJson);
-      _tasks =
-          decodedData
-              .map((item) => Task.fromJson(item as Map<String, dynamic>))
-              .toList();
-      notifyListeners(); // Notify listeners after loading
-    }
-  }
-
-  // Save tasks to SharedPreferences
-  Future<void> _saveTasks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String encodedData = json.encode(
-      _tasks.map((task) => task.toJson()).toList(),
-    );
-    await prefs.setString('tasks', encodedData);
-  }
-
-  // --- Task Management Methods ---
-
-  // Add a new task (using the merged Task model)
   void addTask({
     required String title,
-    String description = '', // Default to empty string
-    required String time, // Time as string from Streaks app
+    String description = '',
     required DateTime date,
-    required String subjectId, // Subject ID from Streaks app
-    DateTime? dueDate,
-    TimeOfDay? flutterTime, // TimeOfDay for UI pickers
+    String time = 'Sin hora',
+    required String subjectId,
+    TimeOfDay? flutterTime,
     bool isCompleted = false,
   }) {
     final newTask = Task(
-      id: _uuid.v4(), // Generate unique ID
+      id: _uuid.v4(),
       title: title,
       description: description,
-      time: time,
       date: date,
+      time: time,
       subjectId: subjectId,
-      dueDate: dueDate,
       flutterTime: flutterTime,
       isCompleted: isCompleted,
     );
     _tasks.add(newTask);
-    _saveTasks(); // Save changes
+    print(
+      'Task added: ${newTask.title} on ${newTask.date.toIso8601String().split('T')[0]}',
+    );
+    _saveTasks();
     notifyListeners();
+    print(
+      'addTask completed. notifyListeners() called. Current tasks count: ${_tasks.length}',
+    );
   }
 
-  // Remove a task by its ID
-  void removeTask(String taskId) {
-    _tasks.removeWhere((task) => task.id == taskId);
-    _saveTasks(); // Save changes
-    notifyListeners();
-  }
-
-  // Toggle the completion status of a task
-  void toggleTaskCompletion(String taskId) {
-    final taskIndex = _tasks.indexWhere((task) => task.id == taskId);
-    if (taskIndex != -1) {
-      _tasks[taskIndex].isCompleted = !_tasks[taskIndex].isCompleted;
-      _saveTasks(); // Save changes
-      notifyListeners();
-    }
-  }
-
-  // Update an existing task
   void updateTask(Task updatedTask) {
     final taskIndex = _tasks.indexWhere((task) => task.id == updatedTask.id);
-    if (taskIndex != -1) {
+    if (taskIndex >= 0) {
       _tasks[taskIndex] = updatedTask;
-      _saveTasks(); // Save changes
+      print('Task updated: ${updatedTask.title}');
+      _saveTasks();
       notifyListeners();
+      print(
+        'updateTask completed. notifyListeners() called. Current tasks count: ${_tasks.length}',
+      );
+    } else {
+      print('Error: Task with ID ${updatedTask.id} not found for update.');
     }
   }
 
-  // Optional: Get a task by ID
-  Task? getTaskById(String taskId) {
-    return _tasks.firstWhereOrNull((task) => task.id == taskId);
+  void removeTask(String taskId) {
+    final initialCount = _tasks.length;
+    _tasks.removeWhere((task) => task.id == taskId);
+    print('Task removed. Was $initialCount, now ${_tasks.length}');
+    _saveTasks();
+    notifyListeners();
+    print('removeTask completed. notifyListeners() called.');
+  }
+
+  void toggleTaskCompletion(String taskId) {
+    final taskIndex = _tasks.indexWhere((task) => task.id == taskId);
+    if (taskIndex >= 0) {
+      _tasks[taskIndex] = _tasks[taskIndex].copyWith(
+        isCompleted: !_tasks[taskIndex].isCompleted,
+      );
+      print('Task completion toggled for ${_tasks[taskIndex].title}');
+      _saveTasks();
+      notifyListeners();
+      print('toggleTaskCompletion completed. notifyListeners() called.');
+    }
+  }
+
+  // --- Persistence Methods ---
+  Future<void> _saveTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> tasksJson =
+        _tasks.map((task) => jsonEncode(task.toJson())).toList();
+    await prefs.setStringList('tasks', tasksJson);
+    print('Tasks saved to SharedPreferences. ${tasksJson.length} tasks.');
+  }
+
+  Future<void> _loadTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? tasksJson = prefs.getStringList('tasks');
+    if (tasksJson != null) {
+      _tasks =
+          tasksJson
+              .map((jsonString) => Task.fromJson(jsonDecode(jsonString)))
+              .toList();
+      print(
+        'Tasks loaded from SharedPreferences. Loaded ${_tasks.length} tasks.',
+      );
+    } else {
+      print('No tasks found in SharedPreferences.');
+    }
+    notifyListeners(); // Notify after loading to update UI
+    print('_loadTasks completed. notifyListeners() called.');
   }
 }
