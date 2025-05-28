@@ -2,13 +2,15 @@
 // ... existing imports ...
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:studyquest_app/models/subject.dart';
-import 'package:studyquest_app/providers/subject_provider.dart';
-import 'package:studyquest_app/providers/task_provider.dart'; // Import TaskProvider
+import 'package:studyquest_app/models/subject.dart'; // Asegúrate de que Subject esté actualizado con examDate2 y copyWith
+import 'package:studyquest_app/providers/subject_provider.dart'; // Asegúrate de que SubjectProvider esté actualizado
+import 'package:studyquest_app/providers/task_provider.dart';
+import 'package:studyquest_app/screens/subject_detail.dart';
 import 'package:studyquest_app/widget/daili_widget.dart';
 import 'package:studyquest_app/widget/streak_widget.dart';
 import 'package:studyquest_app/widget/subject_card.dart';
-import 'package:studyquest_app/widget/task_item_widget.dart'; // Import TaskItemWidget
+import 'package:studyquest_app/widget/task_item_widget.dart';
+import 'package:studyquest_app/screens/subject_detail.dart'; // ¡Importa la nueva pantalla!
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +20,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final TextEditingController _subjectController = TextEditingController();
+  // ELIMINA ESTE CONTROLADOR si no lo vas a usar para el diálogo.
+  // final TextEditingController _subjectController = TextEditingController();
 
   @override
   void initState() {
@@ -28,13 +31,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _subjectController.dispose();
+    // ELIMINA ESTO si _subjectController ya no existe.
+    // _subjectController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    print('HomeScreen build method called.'); // See when HomeScreen rebuilds
+    print('HomeScreen build method called.');
     final subjectProvider = Provider.of<SubjectProvider>(context);
 
     return Scaffold(
@@ -43,14 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today),
-            // Ensure this navigation back to HomeScreen makes it rebuild
             onPressed: () async {
               print('Navigating to calendar...');
               await Navigator.pushNamed(context, '/calendar');
-              // After returning from calendar, force a rebuild if needed
-              // (Consumer should handle it, but for debug, can check)
               print('Returned from calendar. Checking for updates.');
-              // No explicit setState needed here, as Consumer listens
             },
           ),
         ],
@@ -72,9 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Consumer<TaskProvider>(
             builder: (context, taskProvider, child) {
-              // Ensure DateTime.now() is consistent.
-              // It's good practice to get the current date once at the top of build
-              // or just before the call, to avoid tiny discrepancies if build takes time.
               final today = DateTime.now();
               print(
                 'Consumer for TaskProvider rebuilds. Current date: ${today.toIso8601String().split('T')[0]}',
@@ -123,52 +120,60 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddSubjectDialog(context),
+        onPressed: () {
+          // ¡Aquí cambiamos para navegar a la nueva SubjectDetailScreen!
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder:
+                  (ctx) =>
+                      const SubjectDetailScreen(), // No pasamos 'subject' para CREAR una nueva.
+            ),
+          );
+        },
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _showAddSubjectDialog(BuildContext context) {
-    // ... (Your existing _showAddSubjectDialog method)
-    showDialog(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Añadir Materia'),
-            content: TextField(
-              controller: _subjectController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre de la materia',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (_subjectController.text.isNotEmpty) {
-                    final newSubject = Subject(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      name: _subjectController.text,
-                      teacherId: '1', // ID por defecto
-                      examDate: DateTime.now().add(const Duration(days: 30)),
-                    );
-                    Provider.of<SubjectProvider>(
-                      context,
-                      listen: false,
-                    ).addSubject(newSubject);
-                    _subjectController.clear();
-                    Navigator.pop(ctx);
-                  }
-                },
-                child: const Text('Guardar'),
-              ),
-            ],
-          ),
-    );
-  }
+  // ¡ELIMINA COMPLETO EL MÉTODO _showAddSubjectDialog!
+  // void _showAddSubjectDialog(BuildContext context) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (ctx) => AlertDialog(
+  //       title: const Text('Añadir Materia'),
+  //       content: TextField(
+  //         controller: _subjectController,
+  //         decoration: const InputDecoration(
+  //           labelText: 'Nombre de la materia',
+  //           border: OutlineInputBorder(),
+  //         ),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(ctx),
+  //           child: const Text('Cancelar'),
+  //         ),
+  //         TextButton(
+  //           onPressed: () {
+  //             if (_subjectController.text.isNotEmpty) {
+  //               final newSubject = Subject(
+  //                 id: DateTime.now().millisecondsSinceEpoch.toString(),
+  //                 name: _subjectController.text,
+  //                 teacherId: '1', // ID por defecto
+  //                 examDate: DateTime.now().add(const Duration(days: 30)),
+  //               );
+  //               Provider.of<SubjectProvider>(
+  //                 context,
+  //                 listen: false,
+  //               ).addSubject(newSubject); // ESTA ES LA LÍNEA QUE DABA ERROR
+  //               _subjectController.clear();
+  //               Navigator.pop(ctx);
+  //             }
+  //           },
+  //           child: const Text('Guardar'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 }

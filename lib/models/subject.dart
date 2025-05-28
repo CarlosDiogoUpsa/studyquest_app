@@ -1,64 +1,100 @@
 // lib/models/subject.dart
-
 import 'dart:ui'; // For Color
 import 'package:flutter/material.dart'; // For Colors.blue etc.
 
 class Subject {
   final String id;
-  String name; // Changed to non-final to allow updates if needed
+  String name;
   String teacherId;
-  DateTime examDate;
-  List<Map<String, String>> activities; // Changed to non-final
-  Color color; // Added as a property
+  DateTime examDate; // Primera fecha de examen (obligatoria)
+  DateTime? examDate2; // Segunda fecha de examen (opcional, puede ser null)
+  List<Map<String, String>> activities;
+  Color color;
 
   Subject({
     required this.id,
     required this.name,
     required this.teacherId,
     required this.examDate,
-    List<Map<String, String>>? initialActivities, // Optional initial activities
-    Color? initialColor, // Optional initial color
-  })  : activities = initialActivities ?? [], // Initialize activities
-        color = initialColor ?? Colors.blue; // Default color if not provided
+    this.examDate2, // La segunda fecha ahora es un parámetro opcional
+    List<Map<String, String>>? initialActivities,
+    Color? initialColor,
+  }) : activities = initialActivities ?? [],
+       color = initialColor ?? Colors.blue;
 
-  // Method to add activity
+  // Método copyWith para crear una nueva instancia de Subject con propiedades modificadas.
+  // Esto es muy útil con Provider y el principio de inmutabilidad.
+  Subject copyWith({
+    String? id,
+    String? name,
+    String? teacherId,
+    DateTime? examDate,
+    DateTime?
+    examDate2, // Permite actualizar la segunda fecha, incluyendo a null
+    List<Map<String, String>>? activities,
+    Color? color,
+  }) {
+    return Subject(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      teacherId: teacherId ?? this.teacherId,
+      examDate: examDate ?? this.examDate,
+      examDate2:
+          examDate2, // Si se pasa null, se establece a null. Si no se pasa, mantiene el valor actual.
+      initialActivities: activities ?? this.activities,
+      initialColor: color ?? this.color,
+    );
+  }
+
+  // Método para añadir actividad
   void addActivity(String description, String time) {
     activities.add({'description': description, 'time': time});
   }
 
-  // Method to remove activity
+  // Método para remover actividad
   void removeActivity(int index) {
     if (index >= 0 && index < activities.length) {
       activities.removeAt(index);
     }
   }
 
-  // Convert a Subject object into a Map (JSON format)
+  // Convertir un objeto Subject a un Map (formato JSON)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'teacherId': teacherId,
-      'examDate': examDate.toIso8601String(), // Convert DateTime to String
+      'examDate': examDate.toIso8601String(), // Convert DateTime a String
+      'examDate2':
+          examDate2
+              ?.toIso8601String(), // Convertir la segunda fecha (si no es null)
       'activities': activities,
-      'colorValue': color.value, // Store color as an int value
+      'colorValue': color.value,
     };
   }
 
-  // Create a Subject object from a Map (JSON format)
+  // Crear un objeto Subject desde un Map (formato JSON)
   factory Subject.fromJson(Map<String, dynamic> json) {
     List<dynamic> activitiesJson = json['activities'] ?? [];
-    List<Map<String, String>> parsedActivities = activitiesJson
-        .map((activity) => Map<String, String>.from(activity as Map))
-        .toList();
+    List<Map<String, String>> parsedActivities =
+        activitiesJson
+            .map((activity) => Map<String, String>.from(activity as Map))
+            .toList();
+
+    // Parsear la segunda fecha, manejando el caso de que sea null
+    DateTime? parsedExamDate2;
+    if (json['examDate2'] != null) {
+      parsedExamDate2 = DateTime.parse(json['examDate2'] as String);
+    }
 
     return Subject(
       id: json['id'] as String,
       name: json['name'] as String,
       teacherId: json['teacherId'] as String,
-      examDate: DateTime.parse(json['examDate'] as String), // Parse String back to DateTime
+      examDate: DateTime.parse(json['examDate'] as String),
+      examDate2: parsedExamDate2, // Asignar la segunda fecha parseada
       initialActivities: parsedActivities,
-      initialColor: Color(json['colorValue'] as int), // Reconstruct Color from int
+      initialColor: Color(json['colorValue'] as int),
     );
   }
 }
